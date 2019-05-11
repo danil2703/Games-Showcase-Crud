@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Панель редактирования игр</title>
+    <script src="https://code.jquery.com/jquery-3.4.1.js" integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU=" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="jquery.simplePagination.js"></script>
+    <link type="text/css" rel="stylesheet" href="simplePagination.css"/>
+    <link type="text/css" rel="stylesheet" href="css/list.css"/>
+</head>
+<body>
+    
+    <header>
+            <h1>Панель редактирования игр</h1>
+            <div class="sortBy">
+                <p>Сортировать: </p>
+                <a class="byName">По имени </a>
+                <a class="byRating">По рейтингу </a>
+                <a class="byPrice">По цене </a>
+            </div>
+    </header>
+<section id='demo' class="gamesList">
+        
+</section>
+
+<div id="light-pagination" class="pagination"></div>
+
+<form id='editGame'>
+    <div class='right'>
+        <label>Название: <input type="text" id="title"></label>
+        <label>Цена: <input type="text" id="price"></label>
+        <label>Windows <input type="checkbox" id="win" name="win" class="platforms formPlatforms"></label>
+        <label>Mac OS <input type="checkbox" id="mac" name="mac" class="platforms formPlatforms"></label>
+        <label>Steam <input type="checkbox" id="steam" name="steam" class="platforms formPlatforms"></label>
+    </div>
+    <div class="left">
+        <img>
+        <input name='editImage' id="image" type="file">
+    </div>
+    <input type="submit" id='sbmt' value="Изменить">
+    <input type="submit" id='create' value="Создать">
+    <a class="close">×</a>
+</form>
+
+<script>
+    var xhr = new XMLHttpRequest();
+    var gamesList = document.querySelector('.gamesList');
+
+    xhr.open('GET', '/api/database.json', false);
+    xhr.send();
+
+    if (xhr.status != 200) {
+        alert( xhr.status + ': ' + xhr.statusText );
+    } 
+    else {
+        var gamesObjects = JSON.parse(xhr.responseText); 
+    }
+    
+    for(key in gamesObjects) {
+        let game = document.createElement('article');
+        let platf = '<div class="platforms">';
+        game.classList.add('games-block');
+        
+        game.innerHTML = '<h3>' + gamesObjects[key].title + '</h3>' +
+        '<div class="rating">' + gamesObjects[key].rating.toString().slice(0, 4) + '</div>' +
+        '<div class="price">' + gamesObjects[key].price + '</div>' + 
+        '<a class="edit" href=' + gamesObjects[key].id +'>Редактировать</a>' +
+        '<a class="delete" href=' + gamesObjects[key].id + '>Удалить</a>';
+
+        gamesObjects[key].platform.forEach(item => {
+            platf += '<div class="' + item + '">' + '</div>';
+        });
+
+        platf += "</div>";
+        game.innerHTML += platf;
+        game.style.backgroundImage = "url(/image/" + gamesObjects[key].id + ".jpg)";
+        gamesList.appendChild(game);
+    }
+
+    const arrayEditButtons = document.querySelectorAll("a.edit");
+    const editForm = document.querySelector('#editGame');
+    const closeFormButton = document.querySelector('#editGame .close');
+    const formFieldTitle = document.querySelector('#editGame #title');
+    const formFieldPrice = document.querySelector('#price');
+    const formFieldPlatforms = document.querySelectorAll('input.platforms');
+    const formImage = document.querySelector('#editGame img');
+    const formSubmitButton = document.querySelector('#sbmt');
+    const formCreateButton = document.querySelector('#create');
+    const deleteButtonsArray = document.querySelectorAll('a.delete');
+    let currentEditId;
+
+    /*  Редактирование игры */
+
+    arrayEditButtons.forEach(item => {
+        item.addEventListener('click', function(e) {
+            formSubmitButton.classList.remove('hide');
+            e.preventDefault();
+            editForm.classList.add('show');
+            document.body.classList.add('paranjas');
+
+            var xhr2 = new XMLHttpRequest();
+            xhr2.open('GET', '/api/get.php?' + 'id=' + this.href.split('/').slice(-1), false);
+            xhr2.send();
+            currentEditId = this.href.split('/').slice(-1);
+            console.log(this);
+
+            if (xhr2.status != 200) {
+                alert( xhr2.status + ': ' + xhr2.statusText );
+            } 
+            else {
+                var editObject = JSON.parse(xhr2.responseText); 
+            }
+            
+            formFieldTitle.value = editObject.title;
+            formFieldPrice.value = editObject.price;
+            editObject.platform.forEach(item => {
+                if(item === 'MacOs')
+                    formFieldPlatforms[1].setAttribute('checked', 'checked');
+                if(item === 'Windows') 
+                    formFieldPlatforms[0].setAttribute('checked', 'checked');
+                if(item === 'SteamOS')
+                    formFieldPlatforms[2].setAttribute('checked', 'checked');
+            });
+
+            formImage.setAttribute('src', '/image/' + editObject.id + '.jpg');
+        });
+    });
+
+    
+    formSubmitButton.addEventListener('click', function(event) {
+        event.preventDefault();
+        let xhr = new XMLHttpRequest();
+        let sendingPlatforms = [];
+        var elementOfPlatform = document.querySelectorAll('input[type=checkbox]');  ;
+                if(elementOfPlatform[0].checked)
+                    sendingPlatforms.push('Windows');
+                if(elementOfPlatform[1].checked) 
+                    sendingPlatforms.push('MacOs');
+                if(elementOfPlatform[2].checked) 
+                    sendingPlatforms.push('SteamOS');
+
+        sendingPlatforms = JSON.stringify(sendingPlatforms);
+        let body = 'id=' + currentEditId + '&title=' + formFieldTitle.value + '&platform=' + sendingPlatforms + '&price=' + formFieldPrice.value;
+        xhr.open("POST", '/api/edit.php', true);
+
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.send(body);
+
+                    var file_data = $('#image').prop('files')[0];
+
+                    var form_data = new FormData();
+                    
+                    form_data.append('file', file_data, currentEditId + '.jpg');
+
+                    $.ajax({
+                            url: '/api/saveImage.php',
+                            dataType: 'text',
+                            cache: false,
+                            contentType: false,
+                            processData: false,
+                            data: form_data,
+                            type: 'post',
+                            success: function(php_script_response){
+                                window.location.reload();
+                            }
+                        });
+                
+    });
+
+    closeFormButton.addEventListener('click', function() {
+        editForm.classList.remove('show');
+        document.body.classList.remove('paranjas');
+
+        formFieldTitle.value = '';
+        formFieldPrice.value = '';
+        formFieldPlatforms[0].removeAttribute('checked', 'checked');
+        formFieldPlatforms[1].removeAttribute('checked', 'checked');
+        formFieldPlatforms[2].removeAttribute('checked', 'checked');
+        formImage.removeAttribute('src');
+        
+        formSubmitButton.classList.add('hide');
+        formCreateButton.classList.add('hide');
+    });
+
+    ////// Pagination //////
+
+    function pagination() {
+        jQuery(function($) {
+            var items = $(".gamesList article");
+            var numItems = items.length;
+            var perPage = 8;
+
+            items.slice(perPage).hide();
+            $("#light-pagination").pagination({
+                items: numItems,
+                itemsOnPage: perPage,
+                cssStyle: "light-theme",
+
+                onPageClick: function(pageNumber) {
+                    var showFrom = perPage * (pageNumber - 1);
+                    var showTo = showFrom + perPage;
+
+                    items.hide()
+                        .slice(showFrom, showTo).show();
+                }
+            });
+
+            function checkFragment() {
+                var hash = window.location.hash || "#page-1";
+                hash = hash.match(/^#page-(\d+)$/);
+                if(hash) {
+                    $("#light-pagination").pagination("selectPage", parseInt(hash[1]));
+                }
+            };
+
+            $(window).bind("popstate", checkFragment);
+            checkFragment();
+        });
+    }
+
+    pagination();
+
+    ///// Sort /////
+
+    const sortByPriceBtn = document.querySelector('.byPrice');
+    const sortByRateBtn = document.querySelector('.byRating');
+    const sortByNameBtn = document.querySelector('.byName');
+
+    sortByPriceBtn.addEventListener('click', function () {
+        sortGames('.price');
+    });
+
+    sortByRateBtn.addEventListener('click', function () {
+        sortGames('.rating');
+    });
+
+    sortByNameBtn.addEventListener('click', function () {
+        sortGames('.games-block h3');
+    });
+
+    function sortGames(sortBy) {
+        const gamesArray = document.querySelectorAll('.games-block');
+        let gamesArraySorted = [];
+
+        gamesArray.forEach((item, i) => {
+            gamesArraySorted[i] = item;
+        });
+
+        gamesArraySorted.sort((a, b) => {
+            if(sortBy == '.games-block h3') 
+                return a.querySelector(sortBy).innerHTML > b.querySelector(sortBy).innerHTML ? 1 : -1 ;
+            return a.querySelector(sortBy).innerHTML - b.querySelector(sortBy).innerHTML;
+        });
+
+        if(sortBy == '.rating') 
+        gamesArraySorted = gamesArraySorted.reverse();
+
+        gamesArraySorted.forEach(item => {
+            item.style.display = 'block';
+            gamesList.appendChild(item);
+        });
+        
+        pagination();
+    }
+
+
+  document.addEventListener("DOMContentLoaded", function(event) {
+        formSubmitButton.classList.add('hide');
+        formCreateButton.classList.add('hide');
+
+        var add = document.createElement('a');
+        add.innerHTML = '+ add new Game';
+        add.classList.add('addGame');
+        
+        document.body.appendChild(add);
+
+        const addGameBtn = document.querySelector('.addGame');    
+
+        /* Add Game */
+
+        addGameBtn.addEventListener('click', function() {
+            editForm.classList.add('show');
+            document.body.classList.add('paranjas');
+            formCreateButton.classList.remove('hide');
+        });
+
+        formCreateButton.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            let err = document.querySelector('#editGame .right span');
+            if(err) 
+                err.remove();
+
+            if(formFieldTitle.value === '') {
+                let error = document.createElement('span');
+                error.innerHTML = 'Введите название!';
+                error.style.color = 'red';
+                document.querySelector('#editGame .right').append(error);
+                return;
+            }
+
+            if(formFieldPrice.value === '' && !isNaN(formFieldPrice.value)) {
+                let error = document.createElement('span');
+                error.innerHTML = 'Введите цену правильно!';
+                error.style.color = 'red';
+                document.querySelector('#editGame .right').append(error);
+                return;
+            }
+
+            let xhr = new XMLHttpRequest();
+            let sendingPlatforms = [];
+            var elementOfPlatform = document.querySelectorAll('input[type=checkbox]');  ;
+                    if(elementOfPlatform[0].checked)
+                        sendingPlatforms.push('Windows');
+                    if(elementOfPlatform[1].checked) 
+                        sendingPlatforms.push('MacOs');
+                    if(elementOfPlatform[2].checked) 
+                        sendingPlatforms.push('SteamOS');
+            if(sendingPlatforms.length === 0) {
+                let error = document.createElement('span');
+                error.innerHTML = 'Выберите хотя бы одну платформу!';
+                error.style.color = 'red';
+                document.querySelector('#editGame .right').append(error);
+                return;
+            }
+
+            sendingPlatforms = JSON.stringify(sendingPlatforms);
+            let body = 'title=' + formFieldTitle.value + '&platform=' + sendingPlatforms + '&price=' + formFieldPrice.value;
+            xhr.open("POST", '/api/add.php', true);
+
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.send(body);
+            
+                    xhr.onreadystatechange = function() {
+                        let file_data = $('#image').prop('files')[0];
+                        let form_data = new FormData();
+                        form_data.append('file', file_data, JSON.parse(xhr.response).id + '.jpg');
+                        
+                        $.ajax({
+                            url: '/api/saveImage.php',
+                            dataType: 'text',
+                            cache: false,
+                            contentType: false,
+                            processData: false,
+                            data: form_data,
+                            type: 'post',
+                            success: function(php_script_response){
+                                setTimeout(window.location.reload(), 2000);
+                            }
+                        });
+                    }
+        });
+
+        /* Delete */
+
+        deleteButtonsArray.forEach(item => {
+
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                if(confirm('Вы уверенны что хотите удалить эту игру?')) {
+                    let xhr = new XMLHttpRequest();
+                    let body = 'id=' + this.href.split('/').slice(-1);
+                    xhr.open("POST", '/api/delete.php', true);
+
+                    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                    xhr.send(body);
+                    setTimeout(window.location.reload(), 2000);
+                }
+            });
+        });
+        
+    });
+
+    /* Препросмотр изображений в Input file */
+
+    function handleFileSelect(evt) {
+        var file = evt.target.files; 
+        var f = file[0];
+        if (!f.type.match('image.*')) {
+            alert("Image only please....");
+        }
+        var reader = new FileReader();
+        reader.onload = (function(theFile) {
+            return function(e) {
+                formImage.removeAttribute('src');
+                formImage.setAttribute('src', e.target.result);
+            };
+        })(f);
+        reader.readAsDataURL(f);
+    }
+
+    document.getElementById('image').addEventListener('change', handleFileSelect, false);
+
+</script>
+</body>
+
+</html>

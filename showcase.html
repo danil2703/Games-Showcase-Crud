@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="https://code.jquery.com/jquery-3.4.1.js" integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU=" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="jquery.simplePagination.js"></script>
+    <link type="text/css" rel="stylesheet" href="simplePagination.css"/>
+    <link type="text/css" rel="stylesheet" href="css/list.css"/>
+</head>
+<body>
+
+<header>
+        <h1>Витрина игр из каталога</h1>
+        <div class="sortBy">
+            <p>Сортировать: </p>
+            <a class="byName">По имени </a>
+            <a class="byRating">По рейтингу </a>
+            <a class="byPrice">По цене </a>
+        </div>
+</header>
+    
+
+<section class="gamesList">
+
+</section>
+
+<div id="light-pagination" class="pagination"></div>
+
+<form id='votePanel' class='hide'>
+    <label>Оценка от 1 до 10 <input type="number"></label>
+    <button type='submit' id='voteButtonSubmit'>Оценить</button>
+    <a class="close">×</a>
+</form>
+
+<script>
+    var xhr = new XMLHttpRequest();
+    var gamesList = document.querySelector('.gamesList');
+
+    xhr.open('GET', '/api/database.json', false);
+    xhr.send();
+    if (xhr.status != 200) {
+        alert( xhr.status + ': ' + xhr.statusText );
+    } 
+    else {
+        var gamesObjects = JSON.parse(xhr.responseText); 
+    }
+    
+    
+    for(key in gamesObjects) {
+        let game = document.createElement('article');
+        let platf = '<div class="platforms">';
+        game.classList.add('games-block');
+        console.log(gamesObjects[key].rating.toString());
+        game.innerHTML = '<h3>' + gamesObjects[key].title + '</h3>' +
+        '<div class="rating">' + gamesObjects[key].rating.toString().slice(0, 4) + '</div>' +
+        '<div class="price">' + gamesObjects[key].price + '</div>' + 
+        '<a class="vote" href=' + gamesObjects[key].id +'>Голосовать</a>';
+        gamesObjects[key].platform.forEach(item => {
+            platf += '<div class="' + item + '">' + '</div>';
+        });
+        platf += "</div>"
+        game.innerHTML += platf;
+        game.style.backgroundImage = "url(/image/" + gamesObjects[key].id + ".jpg)";
+        console.log(game.style.backgroundImage);
+        gamesList.appendChild(game);
+    }
+
+    const gameVoteButton = document.querySelectorAll('.vote');
+    const gameVotePanel = document.querySelector('#votePanel');
+    const closeFormButton = document.querySelector('.close');
+    const inputScore = document.querySelector('#votePanel input');
+    const gameVoteSubmit = document.querySelector('#voteButtonSubmit');
+    let currentEditId;
+
+    gameVoteButton.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            gameVotePanel.classList.remove('hide');
+            currentEditId = this.href.split('/').slice(-1);
+            
+            let br = this.getBoundingClientRect()
+            gameVotePanel.style.top = br.top + window.scrollY + 'px';
+            gameVotePanel.style.left = br.left + 17 + 'px';
+        });
+
+
+
+    });
+
+    gameVoteSubmit.addEventListener('click', function(e) {
+            e.preventDefault();
+            let xhr = new XMLHttpRequest();
+
+            xhr.open('POST', '/api/vote.php', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            let body = 'id=' + currentEditId + '&rating=' + +inputScore.value;
+            xhr.send(body);
+            xhr.onreadystatechange = function() {
+                setTimeout(window.location.reload(), 2000);
+            }
+    });
+
+
+    closeFormButton.addEventListener('click', function() {
+        gameVotePanel.classList.add('hide');
+
+        inputScore.value = '';
+    });
+
+    ////// Pagination //////
+
+    function pagination() {
+        jQuery(function($) {
+            var items = $(".gamesList article");
+            var numItems = items.length;
+            var perPage = 8;
+
+            items.slice(perPage).hide();
+            $("#light-pagination").pagination({
+                items: numItems,
+                itemsOnPage: perPage,
+                cssStyle: "light-theme",
+
+                onPageClick: function(pageNumber) {
+                    var showFrom = perPage * (pageNumber - 1);
+                    var showTo = showFrom + perPage;
+
+                    items.hide()
+                        .slice(showFrom, showTo).show();
+                }
+            });
+
+            function checkFragment() {
+                var hash = window.location.hash || "#page-1";
+                hash = hash.match(/^#page-(\d+)$/);
+                if(hash) {
+                    $("#light-pagination").pagination("selectPage", parseInt(hash[1]));
+                }
+            };
+
+            $(window).bind("popstate", checkFragment);
+            checkFragment();
+        });
+    }
+
+    pagination();
+
+    ///// Sort /////
+
+    const sortByPriceBtn = document.querySelector('.byPrice');
+    const sortByRateBtn = document.querySelector('.byRating');
+    const sortByNameBtn = document.querySelector('.byName');
+
+    sortByPriceBtn.addEventListener('click', function () {
+        sortGames('.price');
+    });
+
+    sortByRateBtn.addEventListener('click', function () {
+        sortGames('.rating');
+    });
+
+    sortByNameBtn.addEventListener('click', function () {
+        sortGames('.games-block h3');
+    });
+
+    function sortGames(sortBy) {
+        const gamesArray = document.querySelectorAll('.games-block');
+        let gamesArraySorted = [];
+
+        gamesArray.forEach((item, i) => {
+            gamesArraySorted[i] = item;
+        });
+
+        gamesArraySorted.sort((a, b) => {
+            if(sortBy == '.games-block h3') 
+                return a.querySelector(sortBy).innerHTML > b.querySelector(sortBy).innerHTML ? 1 : -1 ;
+            return a.querySelector(sortBy).innerHTML - b.querySelector(sortBy).innerHTML;
+        });
+
+        if(sortBy == '.rating') 
+        gamesArraySorted = gamesArraySorted.reverse();
+
+        gamesArraySorted.forEach(item => {
+            item.style.display = 'block';
+            gamesList.appendChild(item);
+        });
+        
+        pagination();
+    }
+
+</script>
+</body>
+
+</html>
