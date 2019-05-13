@@ -9,16 +9,25 @@
     <script type="text/javascript" src="jquery.simplePagination.js"></script>
     <link type="text/css" rel="stylesheet" href="simplePagination.css"/>
     <link type="text/css" rel="stylesheet" href="css/list.css"/>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css" integrity="sha384-oS3vJWv+0UjzBfQzYUhtDYW+Pj2yciDJxpsK1OYPAYjqT085Qq/1cq5FLXAZQ7Ay" crossorigin="anonymous">
 </head>
 <body>
     
     <header>
             <h1>Панель редактирования игр</h1>
             <div class="sortBy">
-                <p>Сортировать: </p>
-                <a class="byName">По имени </a>
-                <a class="byRating">По рейтингу </a>
-                <a class="byPrice">По цене </a>
+                    <p>Сортировать:
+                    <select id='selectSort'>
+                        <option selected value='default' style='display:none;'>Сортировать по</option>
+                        <option value='.games-block h3'>По имени</option>
+                        <option value='.rating'>По рейтингу</option>
+                        <option value='.price'>По цене</option>
+                    </select>
+                </p>
+                <form id="findByName">
+                    <label>Поиск: <input type="text" id='findInput' placeholder="Введите имя игры"></label>
+                    <button class="findBtn"><i class="fas fa-search"></i></button>
+                </form>
             </div>
     </header>
 <section id='demo' class="gamesList">
@@ -45,41 +54,46 @@
 </form>
 
 <script>
-    var xhr = new XMLHttpRequest();
-    var gamesList = document.querySelector('.gamesList');
+        /* Получение списка игр */
 
-    xhr.open('GET', '/api/database.json', false);
-    xhr.send();
+        var gamesList = document.querySelector('.gamesList');
 
-    if (xhr.status != 200) {
-        alert( xhr.status + ': ' + xhr.statusText );
-    } 
-    else {
-        var gamesObjects = JSON.parse(xhr.responseText); 
-    }
-    
-    for(key in gamesObjects) {
-        let game = document.createElement('article');
-        let platf = '<div class="platforms">';
-        game.classList.add('games-block');
-        
-        game.innerHTML = '<h3>' + gamesObjects[key].title + '</h3>' +
-        '<div class="rating">' + gamesObjects[key].rating.toString().slice(0, 4) + '</div>' +
-        '<div class="price">' + gamesObjects[key].price + '</div>' + 
-        '<a class="edit" href=' + gamesObjects[key].id +'>Редактировать</a>' +
-        '<a class="delete" href=' + gamesObjects[key].id + '>Удалить</a>';
+        showGameList();
 
-        gamesObjects[key].platform.forEach(item => {
-            platf += '<div class="' + item + '">' + '</div>';
-        });
+        function showGameList() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/database.json', false);
+            xhr.send();
 
-        platf += "</div>";
-        game.innerHTML += platf;
-        game.style.backgroundImage = "url(/image/" + gamesObjects[key].id + ".jpg)";
-        gamesList.appendChild(game);
-    }
+            if (xhr.status != 200) {
+                alert( xhr.status + ': ' + xhr.statusText );
+            } 
+            else {
+                var gamesObjects = JSON.parse(xhr.responseText); 
+            }
+            
+            for(key in gamesObjects) {
+                let game = document.createElement('article');
+                let platf = '<div class="platforms">';
+                game.classList.add('games-block');
+                
+                game.innerHTML = '<h3>' + gamesObjects[key].title + '</h3>' +
+                '<div class="rating">' + gamesObjects[key].rating.toString().slice(0, 4) + '</div>' +
+                '<div class="price">' + gamesObjects[key].price + '</div>' + 
+                '<a class="edit" href=' + gamesObjects[key].id +'>Редактировать</a>' +
+                '<a class="delete" href=' + gamesObjects[key].id + '>Удалить</a>';
 
-    const arrayEditButtons = document.querySelectorAll("a.edit");
+                gamesObjects[key].platform.forEach(item => {
+                    platf += '<div class="' + item + '">' + '</div>';
+                });
+
+                platf += "</div>";
+                game.innerHTML += platf;
+                game.style.backgroundImage = "url(/image/" + gamesObjects[key].id + ".jpg)";
+                gamesList.appendChild(game);
+            }
+        }
+
     const editForm = document.querySelector('#editGame');
     const closeFormButton = document.querySelector('#editGame .close');
     const formFieldTitle = document.querySelector('#editGame #title');
@@ -88,45 +102,49 @@
     const formImage = document.querySelector('#editGame img');
     const formSubmitButton = document.querySelector('#sbmt');
     const formCreateButton = document.querySelector('#create');
-    const deleteButtonsArray = document.querySelectorAll('a.delete');
     let currentEditId;
 
     /*  Редактирование игры */
+    addEditButtonsListener();
 
-    arrayEditButtons.forEach(item => {
-        item.addEventListener('click', function(e) {
-            formSubmitButton.classList.remove('hide');
-            e.preventDefault();
-            editForm.classList.add('show');
-            document.body.classList.add('paranjas');
+    function addEditButtonsListener() {
+            let arrayEditButtons = document.querySelectorAll("a.edit");
+            arrayEditButtons.forEach(item => {
+            item.addEventListener('click', function(e) {
+                formSubmitButton.classList.remove('hide');
+                e.preventDefault();
+                editForm.classList.add('show');
+                document.body.classList.add('paranjas');
 
-            var xhr2 = new XMLHttpRequest();
-            xhr2.open('GET', '/api/get.php?' + 'id=' + this.href.split('/').slice(-1), false);
-            xhr2.send();
-            currentEditId = this.href.split('/').slice(-1);
-            console.log(this);
+                var xhr2 = new XMLHttpRequest();
+                xhr2.open('GET', '/api/get.php?' + 'id=' + this.href.split('/').slice(-1), false);
+                xhr2.send();
+                currentEditId = this.href.split('/').slice(-1);
+                console.log(this);
 
-            if (xhr2.status != 200) {
-                alert( xhr2.status + ': ' + xhr2.statusText );
-            } 
-            else {
-                var editObject = JSON.parse(xhr2.responseText); 
-            }
-            
-            formFieldTitle.value = editObject.title;
-            formFieldPrice.value = editObject.price;
-            editObject.platform.forEach(item => {
-                if(item === 'MacOs')
-                    formFieldPlatforms[1].setAttribute('checked', 'checked');
-                if(item === 'Windows') 
-                    formFieldPlatforms[0].setAttribute('checked', 'checked');
-                if(item === 'SteamOS')
-                    formFieldPlatforms[2].setAttribute('checked', 'checked');
+                if (xhr2.status != 200) {
+                    alert( xhr2.status + ': ' + xhr2.statusText );
+                } 
+                else {
+                    var editObject = JSON.parse(xhr2.responseText); 
+                }
+                
+                formFieldTitle.value = editObject.title;
+                formFieldPrice.value = editObject.price;
+                editObject.platform.forEach(item => {
+                    if(item === 'MacOs')
+                        formFieldPlatforms[1].setAttribute('checked', 'checked');
+                    if(item === 'Windows') 
+                        formFieldPlatforms[0].setAttribute('checked', 'checked');
+                    if(item === 'SteamOS')
+                        formFieldPlatforms[2].setAttribute('checked', 'checked');
+                });
+
+                formImage.setAttribute('src', '/image/' + editObject.id + '.jpg');
             });
-
-            formImage.setAttribute('src', '/image/' + editObject.id + '.jpg');
         });
-    });
+    }
+    
 
     
     formSubmitButton.addEventListener('click', function(event) {
@@ -163,7 +181,13 @@
                             data: form_data,
                             type: 'post',
                             success: function(php_script_response){
-                                window.location.reload();
+                                let popup = document.createElement('div');
+                                popup.classList.add('pop');
+                                popup.innerText='Изменения успешно сохранены';
+                                document.body.appendChild(popup);
+                                setTimeout(function() {
+                                    window.location.reload();
+                                }, 2000);
                             }
                         });
                 
@@ -224,21 +248,39 @@
 
     ///// Sort /////
 
-    const sortByPriceBtn = document.querySelector('.byPrice');
-    const sortByRateBtn = document.querySelector('.byRating');
-    const sortByNameBtn = document.querySelector('.byName');
+    const sortSelectBox = document.getElementById('selectSort');
 
-    sortByPriceBtn.addEventListener('click', function () {
-        sortGames('.price');
+    sortSelectBox.addEventListener('change', function () {
+        sortGames(this.value);
+        if(!this.parentElement.querySelector('.reset')) {
+            let btn = document.createElement('a');
+            btn.classList.add('reset');
+            btn.innerHTML = '×';
+            btn.style.color = 'red';
+            btn.style.fontSize = '22px';
+            btn.addEventListener('click', reset)
+            this.parentElement.appendChild(btn);
+        }
     });
 
-    sortByRateBtn.addEventListener('click', function () {
-        sortGames('.rating');
-    });
+    function reset() {
+        var val = 'default';
+        var sel = sortSelectBox;
+        var opts = sel.options;
+        for (var opt, j = 0; opt = opts[j]; j++) {
+            if (opt.value == val) {
+            sel.selectedIndex = j;
+            break;
+            }
+        }
 
-    sortByNameBtn.addEventListener('click', function () {
-        sortGames('.games-block h3');
-    });
+        gamesList.innerHTML = '';
+        this.remove();
+        showGameList();
+        addEditButtonsListener();
+        addDeleteButtonsListener();
+        pagination();
+    }
 
     function sortGames(sortBy) {
         const gamesArray = document.querySelectorAll('.games-block');
@@ -246,6 +288,7 @@
 
         gamesArray.forEach((item, i) => {
             gamesArraySorted[i] = item;
+           
         });
 
         gamesArraySorted.sort((a, b) => {
@@ -347,32 +390,66 @@
                             data: form_data,
                             type: 'post',
                             success: function(php_script_response){
-                                setTimeout(window.location.reload(), 2000);
+                                let popup = document.createElement('div');
+                                popup.classList.add('pop');
+                                popup.innerText='Игра успешно добавлена';
+                                document.body.appendChild(popup);
+                                setTimeout(function() {
+                                    window.location.reload();
+                                }, 2000);
                             }
                         });
                     }
         });
 
-        /* Delete */
+        addDeleteButtonsListener();
 
-        deleteButtonsArray.forEach(item => {
+        /* Find by Name */
 
-            item.addEventListener('click', function(e) {
-                e.preventDefault();
+        const findButton = document.querySelector('.findBtn');
+        const findField = document.querySelector('#findInput');
 
-                if(confirm('Вы уверенны что хотите удалить эту игру?')) {
-                    let xhr = new XMLHttpRequest();
-                    let body = 'id=' + this.href.split('/').slice(-1);
-                    xhr.open("POST", '/api/delete.php', true);
-
-                    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                    xhr.send(body);
-                    setTimeout(window.location.reload(), 2000);
+        findButton.addEventListener( 'click', function() {
+            document.querySelectorAll('.games-block').forEach(function(item, i) {
+                if(item.querySelector('h3').innerText === findField.value) {
+                    item.querySelector('.edit').click();
+                    window.location.href = "http://crud/list.html?#page-" + Math.ceil(i/8);
                 }
             });
         });
-        
+
     });
+
+    /* Delete */
+
+    function addDeleteButtonsListener(){
+            let deleteButtonsArray = document.querySelectorAll('a.delete');
+
+            deleteButtonsArray.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+
+                    if(confirm('Вы уверенны что хотите удалить эту игру?')) {
+                        let xhr = new XMLHttpRequest();
+                        let body = 'id=' + this.href.split('/').slice(-1);
+                        xhr.open("POST", '/api/delete.php', true);
+
+                        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                        xhr.send(body);
+
+                        xhr.onreadystatechange = function() {
+                            let popup = document.createElement('div');
+                            popup.classList.add('pop');
+                            popup.innerText='Игра успешно удалена';
+                            document.body.appendChild(popup);
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 1000);
+                        }
+                    }
+                });
+            });
+        }
 
     /* Препросмотр изображений в Input file */
 
@@ -393,6 +470,8 @@
     }
 
     document.getElementById('image').addEventListener('change', handleFileSelect, false);
+
+
 
 </script>
 </body>

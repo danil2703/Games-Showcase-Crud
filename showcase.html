@@ -15,10 +15,14 @@
 <header>
         <h1>Витрина игр из каталога</h1>
         <div class="sortBy">
-            <p>Сортировать: </p>
-            <a class="byName">По имени </a>
-            <a class="byRating">По рейтингу </a>
-            <a class="byPrice">По цене </a>
+                <p>Сортировать:
+                <select id='selectSort'>
+                    <option selected value='default' style='display:none;'>Сортировать по</option>
+                    <option value='.games-block h3'>По имени</option>
+                    <option value='.rating'>По рейтингу</option>
+                    <option value='.price'>По цене</option>
+                </select>
+            </p>
         </div>
 </header>
     
@@ -36,36 +40,39 @@
 </form>
 
 <script>
-    var xhr = new XMLHttpRequest();
+
     var gamesList = document.querySelector('.gamesList');
 
-    xhr.open('GET', '/api/database.json', false);
-    xhr.send();
-    if (xhr.status != 200) {
-        alert( xhr.status + ': ' + xhr.statusText );
-    } 
-    else {
-        var gamesObjects = JSON.parse(xhr.responseText); 
-    }
-    
-    
-    for(key in gamesObjects) {
-        let game = document.createElement('article');
-        let platf = '<div class="platforms">';
-        game.classList.add('games-block');
-        console.log(gamesObjects[key].rating.toString());
-        game.innerHTML = '<h3>' + gamesObjects[key].title + '</h3>' +
-        '<div class="rating">' + gamesObjects[key].rating.toString().slice(0, 4) + '</div>' +
-        '<div class="price">' + gamesObjects[key].price + '</div>' + 
-        '<a class="vote" href=' + gamesObjects[key].id +'>Голосовать</a>';
-        gamesObjects[key].platform.forEach(item => {
-            platf += '<div class="' + item + '">' + '</div>';
-        });
-        platf += "</div>"
-        game.innerHTML += platf;
-        game.style.backgroundImage = "url(/image/" + gamesObjects[key].id + ".jpg)";
-        console.log(game.style.backgroundImage);
-        gamesList.appendChild(game);
+    showGameList();
+
+    function showGameList() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/database.json', false);
+        xhr.send();
+        if (xhr.status != 200) {
+            alert( xhr.status + ': ' + xhr.statusText );
+        } 
+        else {
+            var gamesObjects = JSON.parse(xhr.responseText); 
+        }
+        
+        
+        for(key in gamesObjects) {
+            let game = document.createElement('article');
+            let platf = '<div class="platforms">';
+            game.classList.add('games-block');
+            game.innerHTML = '<h3>' + gamesObjects[key].title + '</h3>' +
+            '<div class="rating">' + gamesObjects[key].rating.toString().slice(0, 4) + '</div>' +
+            '<div class="price">' + gamesObjects[key].price + '</div>' + 
+            '<a class="vote" href=' + gamesObjects[key].id +'>Голосовать</a>';
+            gamesObjects[key].platform.forEach(item => {
+                platf += '<div class="' + item + '">' + '</div>';
+            });
+            platf += "</div>"
+            game.innerHTML += platf;
+            game.style.backgroundImage = "url(/image/" + gamesObjects[key].id + ".jpg)";
+            gamesList.appendChild(game);
+        }
     }
 
     const gameVoteButton = document.querySelectorAll('.vote');
@@ -75,20 +82,21 @@
     const gameVoteSubmit = document.querySelector('#voteButtonSubmit');
     let currentEditId;
 
-    gameVoteButton.forEach(item => {
-        item.addEventListener('click', function(e) {
-            e.preventDefault();
-            gameVotePanel.classList.remove('hide');
-            currentEditId = this.href.split('/').slice(-1);
-            
-            let br = this.getBoundingClientRect()
-            gameVotePanel.style.top = br.top + window.scrollY + 'px';
-            gameVotePanel.style.left = br.left + 17 + 'px';
+    addVoteButtonsListener();
+
+    function addVoteButtonsListener() {
+        gameVoteButton.forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                gameVotePanel.classList.remove('hide');
+                currentEditId = this.href.split('/').slice(-1);
+                
+                let br = this.getBoundingClientRect()
+                gameVotePanel.style.top = br.top + window.scrollY + 'px';
+                gameVotePanel.style.left = br.left - 37 + 'px';
+            });
         });
-
-
-
-    });
+    }
 
     gameVoteSubmit.addEventListener('click', function(e) {
             e.preventDefault();
@@ -99,7 +107,16 @@
             let body = 'id=' + currentEditId + '&rating=' + +inputScore.value;
             xhr.send(body);
             xhr.onreadystatechange = function() {
-                setTimeout(window.location.reload(), 2000);
+                let popup = document.createElement('div');
+                popup.classList.add('pop');
+                if(inputScore.value>=1 && inputScore.value <= 10)
+                    popup.innerText='Спасибо, Ваш голос учтен!';
+                else
+                    popup.innerText='Оценка должна быть от 1 до 10!';
+                document.body.appendChild(popup);
+                setTimeout(function() {
+                    document.body.lastChild.remove();
+                }, 2000);
             }
     });
 
@@ -150,21 +167,7 @@
 
     ///// Sort /////
 
-    const sortByPriceBtn = document.querySelector('.byPrice');
-    const sortByRateBtn = document.querySelector('.byRating');
-    const sortByNameBtn = document.querySelector('.byName');
-
-    sortByPriceBtn.addEventListener('click', function () {
-        sortGames('.price');
-    });
-
-    sortByRateBtn.addEventListener('click', function () {
-        sortGames('.rating');
-    });
-
-    sortByNameBtn.addEventListener('click', function () {
-        sortGames('.games-block h3');
-    });
+    const sortSelectBox = document.getElementById('selectSort');
 
     function sortGames(sortBy) {
         const gamesArray = document.querySelectorAll('.games-block');
@@ -188,6 +191,38 @@
             gamesList.appendChild(item);
         });
         
+        pagination();
+    }
+
+    sortSelectBox.addEventListener('change', function () {
+        sortGames(this.value);
+        if(!this.parentElement.querySelector('.reset')) {
+            let btn = document.createElement('a');
+            btn.classList.add('reset');
+            btn.innerHTML = '×';
+            btn.style.color = 'red';
+            btn.style.fontSize = '22px';
+            btn.addEventListener('click', reset)
+            this.parentElement.appendChild(btn);
+        }
+    });
+
+    function reset() {
+        var val = 'default';
+        var sel = sortSelectBox;
+        var opts = sel.options;
+        for (var opt, j = 0; opt = opts[j]; j++) {
+            if (opt.value == val) {
+            sel.selectedIndex = j;
+            break;
+            }
+        }
+
+        gamesList.innerHTML = '';
+        this.remove();
+        showGameList();
+        addEditButtonsListener();
+        addDeleteButtonsListener();
         pagination();
     }
 
